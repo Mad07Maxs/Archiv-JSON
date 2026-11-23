@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub Archiv JSON-Editor</title>
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --surface: #ffffff;
+      --text: #141619;
+      --muted: #5c6370;
+      --border: #d5d9e0;
+      --primary: #111827;
+      --primary-text: #ffffff;
+      --success-bg: #ecfdf3;
+      --success-border: #abefc6;
+      --success-text: #067647;
+      --error-bg: #fef3f2;
+      --error-border: #fecdca;
+      --error-text: #b42318;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 28px 16px 60px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.65rem;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .panel-title {
+      margin: 0 0 14px;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    .gh-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .gh-grid-2 {
+      display: grid;
+      grid-template-columns: 1.5fr 2fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    @media (max-width: 820px) {
+      .gh-grid, .gh-grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 14px;
+      color: var(--text);
+      background: #fff;
+    }
+
+    input:focus, textarea:focus {
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    button, .btn-file {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 14px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: #fff;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    button:hover:not(:disabled), .btn-file:hover {
+      background: #f9fafb;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    button.primary {
+      background: var(--primary);
+      color: var(--primary-text);
+      border-color: var(--primary);
+    }
+
+    button.primary:hover:not(:disabled) {
+      background: #232b3b;
+    }
+
+    button.danger {
+      color: var(--error-text);
+      border-color: var(--error-border);
+      background: var(--error-bg);
+    }
+
+    .entry-card {
+      display: grid;
+      grid-template-columns: 95px 1.2fr 1.5fr 1.2fr 64px auto;
+      gap: 10px;
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    @media (max-width: 900px) {
+      .entry-card {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .thumb {
+      width: 48px;
+      height: 66px;
+      object-fit: cover;
+      border-radius: 3px;
+      background: #141414;
+      border: 1px solid var(--border);
+      display: block;
+      margin: 0 auto;
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .status {
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 16px;
+      display: none;
+      border: 1px solid transparent;
+    }
+
+    .status.show { display: block; }
+    .status.ok {
+      background: var(--success-bg);
+      border-color: var(--success-border);
+      color: var(--success-text);
+    }
+    .status.err {
+      background: var(--error-bg);
+      border-color: var(--error-border);
+      color: var(--error-text);
+    }
+
+    textarea.json-box {
+      min-height: 240px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .note {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Archiv JSON-Editor für GitHub</h1>
+    <p class="subtitle">Einträge visuell pflegen, JSON prüfen und direkt in dein GitHub-Repository committen.</p>
+
+    <div id="status-box" class="status" role="status" aria-live="polite"></div>
+
+    <!-- GitHub Verbindung -->
+    <section class="panel">
+      <h2 class="panel-title">1. GitHub-Repository &amp; Commit</h2>
+      <div class="gh-grid">
+        <div>
+          <label for="gh-owner">Owner (User oder Org)</label>
+          <input type="text" id="gh-owner" placeholder="z. B. Mad07Maxs" />
+        </div>
+        <div>
+          <label for="gh-repo">Repository-Name</label>
+          <input type="text" id="gh-repo" placeholder="z. B. archiv-daten" />
+        </div>
+        <div>
+          <label for="gh-path">Dateipfad im Repo</label>
+          <input type="text" id="gh-path" value="archive.json" />
+        </div>
+        <div>
+          <label for="gh-token">Fine-Grained Token (nur in Session)</label>
+          <input type="password" id="gh-token" placeholder="github_pat_..." autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="gh-grid-2">
+        <div>
+          <label for="gh-message">Commit-Nachricht</label>
+          <input type="text" id="gh-message" value="Update archive.json" />
+        </div>
+        <div>
+          <label for="gh-branch">Branch (optional, leer = Standard-Branch)</label>
+          <input type="text" id="gh-branch" placeholder="main" />
+        </div>
+        <div class="row-actions">
+          <button type="button" id="load-gh-btn">Von GitHub laden</button>
+          <button type="button" class="primary" id="save-gh-btn">Auf GitHub speichern</button>
+        </div>
+      </div>
+      <p class="note">Hinweis: Der Token wird nur während der aktuellen Browser-Sitzung (<code>sessionStorage</code>) im Speicher gehalten und nicht in den Code geschrieben.</p>
+    </section>
+
+    <!-- Einträge -->
+    <section class="panel">
+      <h2 class="panel-title">2. Einträge bearbeiten</h2>
+      <div class="toolbar">
+        <button type="button" class="primary" id="add-entry-btn">+ Neuer Eintrag</button>
+        <button type="button" id="sort-year-btn">Nach Jahr sortieren (neu → alt)</button>
+        <label class="btn-file">
+          Lokale JSON laden
+          <input type="file" id="import-file-input" accept=".json,application/json" hidden />
+        </label>
+        <button type="button" id="download-json-btn">archive.json herunterladen</button>
+        <button type="button" id="copy-json-btn">JSON kopieren</button>
+      </div>
+
+      <div id="entries-list"></div>
+    </section>
+
+    <!-- Raw JSON -->
+    <section class="panel">
+      <h2 class="panel-title">3. Generiertes JSON (live synchronisiert)</h2>
+      <textarea id="json-output" class="json-box" aria-label="JSON-Ausgabe"></textarea>
+      <div class="toolbar" style="margin-top: 10px; margin-bottom: 0;">
+        <button type="button" id="apply-raw-btn">Änderungen aus JSON-Feld übernehmen</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "it_gh_archive_editor_cfg_v1";
+
+    let items = [
+      { year: 2026, title: "", image: "", url: "" }
+    ];
+
+    const els = {
+      status: document.getElementById("status-box"),
+      owner: document.getElementById("gh-owner"),
+      repo: document.getElementById("gh-repo"),
+      path: document.getElementById("gh-path"),
+      token: document.getElementById("gh-token"),
+      message: document.getElementById("gh-message"),
+      branch: document.getElementById("gh-branch"),
+      loadGhBtn: document.getElementById("load-gh-btn"),
+      saveGhBtn: document.getElementById("save-gh-btn"),
+      addEntryBtn: document.getElementById("add-entry-btn"),
+      sortYearBtn: document.getElementById("sort-year-btn"),
+      importFileInput: document.getElementById("import-file-input"),
+      downloadJsonBtn: document.getElementById("download-json-btn"),
+      copyJsonBtn: document.getElementById("copy-json-btn"),
+      entriesList: document.getElementById("entries-list"),
+      jsonOutput: document.getElementById("json-output"),
+      applyRawBtn: document.getElementById("apply-raw-btn")
+    };
+
+    function showStatus(msg, type = "ok") {
+      els.status.textContent = msg;
+      els.status.className = `status show ${type}`;
+    }
+
+    function escapeAttr(val) {
+      return String(val ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;");
+    }
+
+    function normalizeItems(rawList) {
+      if (!Array.isArray(rawList)) return [];
+      return rawList.map((entry) => ({
+        year: Number(entry.year) || new Date().getFullYear(),
+        title: String(entry.title || "").trim(),
+        image: String(entry.image || "").trim(),
+        url: String(entry.url || "").trim()
+      }));
+    }
+
+    function syncJsonOutput() {
+      const cleaned = normalizeItems(items);
+      els.jsonOutput.value = JSON.stringify(cleaned, null, 2);
+      return cleaned;
+    }
+
+    function renderEntries() {
+      els.entriesList.innerHTML = "";
+
+      if (!items.length) {
+        els.entriesList.innerHTML = '<p class="note">Keine Einträge vorhanden. Klicke auf „+ Neuer Eintrag“.</p>';
+        syncJsonOutput();
+        return;
+      }
+
+      items.forEach((item, index) => {
+        const card = document.createElement("div");
+        card.className = "entry-card";
+
+        const previewSrc = item.image || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+        card.innerHTML = `
+          <div>
+            <label>Jahr</label>
+            <input type="number" value="${escapeAttr(item.year)}" placeholder="2026" />
+          </div>
+          <div>
+            <label>Titel / Stück</label>
+            <input type="text" value="${escapeAttr(item.title)}" placeholder="z. B. Schneeweißchen und rosenrot" />
+          </div>
+          <div>
+            <label>Bild-URL</label>
+            <input type="url" value="${escapeAttr(item.image)}" placeholder="https://.../plakat.jpg" />
+          </div>
+          <div>
+            <label>Link-URL (optional)</label>
+            <input type="url" value="${escapeAttr(item.url)}" placeholder="https://..." />
+          </div>
+          <div>
+            <label>Vorschau</label>
+            <img class="thumb" src="${escapeAttr(previewSrc)}" alt="Vorschau" />
+          </div>
+          <div class="row-actions">
+            <button type="button" title="Nach oben" ${index === 0 ? "disabled" : ""}>↑</button>
+            <button type="button" title="Nach unten" ${index === items.length - 1 ? "disabled" : ""}>↓</button>
+            <button type="button" class="danger" title="Löschen">✕</button>
+          </div>
+        `;
+
+        const inputs = card.querySelectorAll("input");
+        const thumbImg = card.querySelector("img.thumb");
+        const [upBtn, downBtn, delBtn] = card.querySelectorAll(".row-actions button");
+
+        inputs[0].addEventListener("input", (e) => {
+          items[index].year = e.target.value;
+          syncJsonOutput();
+        });
+
+        inputs[1].addEventListener("input", (e) => {
+          items[index].title = e.target.value;
+          syncJsonOutput();
+        });
+
+        inputs[2].addEventListener("input", (e) => {
+          items[index].image = e.target.value;
+          thumbImg.src = e.target.value.trim() || previewSrc;
+          syncJsonOutput();
+        });
+
+        inputs[3].addEventListener("input", (e) => {
+          items[index].url = e.target.value;
+          syncJsonOutput();
+        });
+
+        upBtn.addEventListener("click", () => {
+          [items[index - 1], items[index]] = [items[index], items[index - 1]];
+          renderEntries();
+        });
+
+        downBtn.addEventListener("click", () => {
+          [items[index + 1], items[index]] = [items[index], items[index + 1]];
+          renderEntries();
+        });
+
+        delBtn.addEventListener("click", () => {
+          items.splice(index, 1);
+          renderEntries();
+        });
+
+        els.entriesList.appendChild(card);
+      });
+
+      syncJsonOutput();
+    }
+
+    function saveSessionConfig() {
+      const cfg = {
+        owner: els.owner.value.trim(),
+        repo: els.repo.value.trim(),
+        path: els.path.value.trim() || "archive.json",
+        branch: els.branch.value.trim(),
+        token: els.token.value
+      };
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+      } catch (_) {}
+    }
+
+    function loadSessionConfig() {
+      try {
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const cfg = JSON.parse(raw);
+        if (cfg.owner) els.owner.value = cfg.owner;
+        if (cfg.repo) els.repo.value = cfg.repo;
+        if (cfg.path) els.path.value = cfg.path;
+        if (cfg.branch) els.branch.value = cfg.branch;
+        if (cfg.token) els.token.value = cfg.token;
+      } catch (_) {}
+    }
+
+    function getGhConfig() {
+      saveSessionConfig();
+      const owner = els.owner.value.trim();
+      const repo = els.repo.value.trim();
+      const path = (els.path.value.trim() || "archive.json").replace(/^\/+/, "");
+      const token = els.token.value.trim();
+      const branch = els.branch.value.trim();
+      const message = els.message.value.trim() || "Update archive.json";
+
+      if (!owner || !repo || !path) {
+        throw new Error("Bitte Owner, Repository-Name und Dateipfad angeben.");
+      }
+      return { owner, repo, path, token, branch, message };
+    }
+
+    function encodeBase64Utf8(str) {
+      const bytes = new TextEncoder().encode(str);
+      let bin = "";
+      for (let i = 0; i < bytes.length; i++) {
+        bin += String.fromCharCode(bytes[i]);
+      }
+      return btoa(bin);
+    }
+
+    function decodeBase64Utf8(b64) {
+      const clean = b64.replace(/\n/g, "");
+      const bin = atob(clean);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) {
+        bytes[i] = bin.charCodeAt(i);
+      }
+      return new TextDecoder().decode(bytes);
+    }
+
+    async function loadFromGitHub() {
+      const { owner, repo, path, token, branch } = getGhConfig();
+      const query = branch ? `?ref=${encodeURIComponent(branch)}` : "";
+      const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}${query}`;
+
+      const headers = {
+        "Accept": "application/vnd.github+json"
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(url, { headers, cache: "no-store" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `GitHub-Fehler beim Laden (HTTP ${res.status})`);
+      }
+
+      const data = await res.json();
+      const decoded = decodeBase64Utf8(data.content || "");
+      const parsed = JSON.parse(decoded);
+      items = normalizeItems(Array.isArray(parsed) ? parsed : parsed.items);
+      renderEntries();
+      showStatus(`„${path}“ erfolgreich von GitHub geladen (${items.length} Einträge).`, "ok");
+    }
+
+    async function saveToGitHub() {
+      const { owner, repo, path, token, branch, message } = getGhConfig();
+      if (!token) {
+        throw new Error("Für das Speichern auf GitHub wird ein Personal Access Token benötigt.");
+      }
+
+      const cleaned = syncJsonOutput();
+      const jsonText = JSON.stringify(cleaned, null, 2) + "\n";
+
+      const baseUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}`;
+      const getUrl = branch ? `${baseUrl}?ref=${encodeURIComponent(branch)}` : baseUrl;
+
+      const headers = {
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json"
+      };
+
+      let sha = undefined;
+      const getRes = await fetch(getUrl, { headers, cache: "no-store" });
+      if (getRes.ok) {
+        const existing = await getRes.json();
+        sha = existing.sha;
+      } else if (getRes.status !== 404) {
+        const err = await getRes.json().catch(() => ({}));
+        throw new Error(err.message || `Fehler beim Abrufen der Datei (HTTP ${getRes.status})`);
+      }
+
+      const payload = {
+        message,
+        content: encodeBase64Utf8(jsonText),
+        ...(sha ? { sha } : {}),
+        ...(branch ? { branch } : {})
+      };
+
+      const putRes = await fetch(baseUrl, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (!putRes.ok) {
+        const err = await putRes.json().catch(() => ({}));
+        throw new Error(err.message || `Fehler beim Commit (HTTP ${putRes.status})`);
+      }
+
+      const result = await putRes.json();
+      const commitSha = result.commit?.sha ? result.commit.sha.slice(0, 7) : "";
+      showStatus(`Erfolgreich auf GitHub gespeichert${commitSha ? ` (Commit ${commitSha})` : ""}.`, "ok");
+    }
+
+    // Event-Listener
+    els.addEntryBtn.addEventListener("click", () => {
+      const topYear = items.length ? Number(items[0].year) || 2026 : 2026;
+      items.unshift({ year: topYear, title: "", image: "", url: "" });
+      renderEntries();
+    });
+
+    els.sortYearBtn.addEventListener("click", () => {
+      items.sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0));
+      renderEntries();
+      showStatus("Einträge nach Jahr sortiert.", "ok");
+    });
+
+    els.importFileInput.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(String(reader.result));
+          items = normalizeItems(Array.isArray(parsed) ? parsed : parsed.items);
+          renderEntries();
+          showStatus(`„${file.name}“ geladen.`, "ok");
+        } catch {
+          showStatus("Die ausgewählte Datei enthält kein gültiges JSON.", "err");
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    });
+
+    els.downloadJsonBtn.addEventListener("click", () => {
+      const cleaned = syncJsonOutput();
+      const blob = new Blob([JSON.stringify(cleaned, null, 2) + "\n"], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = els.path.value.trim().split("/").pop() || "archive.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      showStatus("JSON-Datei heruntergeladen.", "ok");
+    });
+
+    els.copyJsonBtn.addEventListener("click", async () => {
+      syncJsonOutput();
+      try {
+        await navigator.clipboard.writeText(els.jsonOutput.value);
+        showStatus("JSON in die Zwischenablage kopiert.", "ok");
+      } catch {
+        els.jsonOutput.select();
+        document.execCommand("copy");
+        showStatus("JSON kopiert.", "ok");
+      }
+    });
+
+    els.applyRawBtn.addEventListener("click", () => {
+      try {
+        const parsed = JSON.parse(els.jsonOutput.value);
+        if (!Array.isArray(parsed)) {
+          throw new Error("Wurzelelement muss ein Array [...] sein.");
+        }
+        items = normalizeItems(parsed);
+        renderEntries();
+        showStatus("Änderungen aus dem JSON-Feld übernommen.", "ok");
+      } catch (err) {
+        showStatus(`Ungültiges JSON: ${err.message}`, "err");
+      }
+    });
+
+    els.loadGhBtn.addEventListener("click", async () => {
+      els.loadGhBtn.disabled = true;
+      try {
+        await loadFromGitHub();
+      } catch (err) {
+        showStatus(err.message, "err");
+      } finally {
+        els.loadGhBtn.disabled = false;
+      }
+    });
+
+    els.saveGhBtn.addEventListener("click", async () => {
+      els.saveGhBtn.disabled = true;
+      try {
+        await saveToGitHub();
+      } catch (err) {
+        showStatus(err.message, "err");
+      } finally {
+        els.saveGhBtn.disabled = false;
+      }
+    });
+
+    loadSessionConfig();
+    renderEntries();
+  </script>
+</body>
+</html>
